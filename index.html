@@ -280,20 +280,29 @@
   }
   .tile-band {
     display: flex;
-    gap: 12px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    padding: 8px 0;
+    overflow: hidden;
     margin: 0 -28px;
-    padding-left: 28px;
-    padding-right: 28px;
+    padding: 8px 0;
+    position: relative;
+    -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
   }
-  .tile-band::-webkit-scrollbar { display: none; }
+  .tile-track {
+    display: flex;
+    gap: 12px;
+    flex-shrink: 0;
+    padding-left: 12px;
+    animation: marquee 90s linear infinite;
+    will-change: transform;
+  }
+  .tile-band:hover .tile-track { animation-play-state: paused; }
+  @keyframes marquee {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
   .tile {
     flex-shrink: 0;
     width: 124px;
-    scroll-snap-align: start;
     cursor: pointer;
     transition: transform 0.15s;
   }
@@ -531,6 +540,36 @@
     color: var(--bg);
   }
 
+  /* Follow-up action row (rendered beneath the latest agent reply when it
+     produced cards). Sends a pre-canned user message on click. */
+  .followups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 14px 0 2px;
+  }
+  .followup-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .followup-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--accent-dim);
+  }
+  .followup-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   /* Chat input area */
   .input-area {
     flex-shrink: 0;
@@ -645,7 +684,7 @@
     .hero-greeting { font-size: 2rem; }
     #messages { padding: 16px 16px 8px; }
     .input-area { padding: 10px 16px 14px; }
-    .tile-band { margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+    .tile-band { margin: 0 -16px; }
     .tile, .tile-art { width: 104px; }
     .tile-art { height: 104px; }
     .card { padding: 12px; gap: 12px; }
@@ -741,7 +780,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.1.1';
+const APP_VERSION = '0.1.2';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -753,7 +792,7 @@ const PROXY_URL = 'https://p1-agent-demo.jsasse-5c6.workers.dev';
 // ─── CAROLLA DEEP-TIER URL ────────────────────────────────────────────────
 // Where the [carolla-deep] CTA sends users. Placeholder until Cade confirms
 // the deployed Carolla agent URL.
-const CAROLLA_AGENT_URL = 'https://carolla.podcastone.ai/';
+const CAROLLA_AGENT_URL = 'https://thejsasse.github.io/adam-carolla-show-poc/';
 
 // ─── PAYLOAD ──────────────────────────────────────────────────────────────
 // Seed catalog: 25 shows, 750 episodes. Generated from p1_seed_data.json.
@@ -780,11 +819,12 @@ const filterState = {
 };
 
 // Starter prompts — NYT register, no exclamation marks, no emoji.
+// "Deep cut" starter removed in v0.1.2 — the concept now lives in the
+// "Go Deeper" follow-up button beneath agent replies with cards.
 const STARTERS = [
   { tag: 'Long drive',  text: 'Something I can put on for a long drive.' },
   { tag: 'Make me laugh', text: 'Make me laugh — surprise me with something fresh.' },
   { tag: 'True crime',  text: 'A true crime story I haven\u2019t heard.' },
-  { tag: 'Deep cut',    text: 'Find me a deep cut from the back catalog.' },
 ];
 
 // ─── SYSTEM PROMPT ────────────────────────────────────────────────────────
@@ -933,11 +973,13 @@ STARTERS.forEach(s => {
   startersEl.appendChild(b);
 });
 
-// ─── UI: TILE BAND ────────────────────────────────────────────────────────
+// ─── UI: TILE BAND (marquee, right-to-left, paused on hover) ──────────────
 const tileBandEl = document.getElementById('tileBand');
-// Order by listen score desc for the tile band; fall back to position
+const tileTrack = document.createElement('div');
+tileTrack.className = 'tile-track';
+// Order by listen score desc; fall back to position
 const tileOrder = [...SHOWS].sort((a, b) => (b.score || 0) - (a.score || 0));
-tileOrder.forEach(s => {
+function makeTile(s) {
   const tile = document.createElement('div');
   tile.className = 'tile';
   const safeName = escapeHtml(s.t);
@@ -950,8 +992,18 @@ tileOrder.forEach(s => {
     heroSendBtn.disabled = false;
     sendFromHero();
   });
-  tileBandEl.appendChild(tile);
+  return tile;
+}
+// Render the tile set twice — the CSS animation translates -50%, so the
+// second copy fills the visible area as the first copy scrolls off, giving
+// a seamless loop.
+tileOrder.forEach(s => tileTrack.appendChild(makeTile(s)));
+tileOrder.forEach(s => {
+  const t = makeTile(s);
+  t.setAttribute('aria-hidden', 'true');
+  tileTrack.appendChild(t);
 });
+tileBandEl.appendChild(tileTrack);
 
 // ─── ACTIVE FILTERS DISPLAY (chat state) ──────────────────────────────────
 const activeFiltersEl = document.getElementById('activeFilters');
@@ -1109,7 +1161,7 @@ function renderCarollaDeepCard() {
     '</div>' +
     '<div class="card-body">' +
       '<div class="card-kicker">Deep Tier · The Adam Carolla Show</div>' +
-      '<div class="card-title">Go deeper — full archive, dedicated agent</div>' +
+      '<div class="card-title">The full Adam Carolla archive — dedicated agent</div>' +
       '<div class="card-meta">6,000+ episodes, 15+ years. Drop into the show\u2019s own concierge.</div>' +
       '<div class="card-actions">' +
         '<span class="card-cta">Open the Carolla agent →</span>' +
@@ -1151,7 +1203,38 @@ function addMessage(role, text) {
   row.appendChild(avatar);
   row.appendChild(bubble);
   messagesEl.appendChild(row);
+
+  // Follow-up action buttons: only on the latest agent message that produced
+  // cards. Strip any prior follow-up rows so they don't accumulate.
+  if (role === 'agent') {
+    document.querySelectorAll('.followups').forEach(el => el.remove());
+    const hasCards = bubble.querySelector('.cards-row');
+    if (hasCards) {
+      const followups = document.createElement('div');
+      followups.className = 'followups';
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'followup-btn';
+      moreBtn.textContent = 'More like this';
+      moreBtn.addEventListener('click', () => sendFollowup('Show me more like these.'));
+      const deeperBtn = document.createElement('button');
+      deeperBtn.className = 'followup-btn';
+      deeperBtn.textContent = 'Go deeper';
+      deeperBtn.addEventListener('click', () => sendFollowup('Take me deeper \u2014 older episodes or less-obvious picks.'));
+      followups.appendChild(moreBtn);
+      followups.appendChild(deeperBtn);
+      bubble.appendChild(followups);
+    }
+  }
+
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// Fire a pre-canned user message through the normal send flow.
+function sendFollowup(phrase) {
+  if (isLoading) return;
+  inputEl.value = phrase;
+  sendBtn.disabled = false;
+  sendMessage();
 }
 
 function addTyping() {
