@@ -788,7 +788,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.1.5';
+const APP_VERSION = '0.1.6';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -883,8 +883,57 @@ Before every reply, run this check:
 9. Am I keeping them in chat when I should be sending them to press play? Wrap up.`;
 
 // ─── CATALOG WINDOW BUILDER ──────────────────────────────────────────────
+//
+// Each turn we send the agent a "window" into the catalog rather than the full
+// 750-episode dump. The window is built from three sources, deduplicated:
+//
+//   1. BASELINE: most-recent RECENT_PER_SHOW episodes from every show.
+//      Guarantees representation across all 25 shows for generic queries.
+//
+//   2. TAG BOOST: when the user has topic filters active, include up to
+//      TAG_BOOST_PER_SHOW episodes from any show whose tags intersect those
+//      topics. The seed tags do most of the routing work since P1 episode
+//      titles are often non-descriptive ("Episode 396 - Marco Tracey").
+//
+//   3. KEYWORD MATCHES: score every other episode by title-keyword overlap
+//      with the user's latest message, take the top ARCHIVE_MATCH_LIMIT.
+//
+// Total catalog block: typically ~2.5k tokens (vs ~16k for the full dump).
+// Per-turn floor drops from ~22k to ~9k, keeping us comfortably under the
+// 30k/min org rate limit even on two-tap iteration.
+//
+// ┌─── DEMO MODE: For the in-person demo, set RECENT_PER_SHOW to 30 to
+// │    effectively include the entire catalog (every show stores up to 30
+// │    episodes in `s.eps`), or remove windowing entirely by replacing the
+// │    `includedIds` build with `for (const e of EPISODES) includedIds.add(e.i)`.
+// │    Bump the version when you do.
+// └────
+const RECENT_PER_SHOW    = 2;   // most-recent baseline per show
+const TAG_BOOST_PER_SHOW = 5;   // extra per show when topic filters match
+const ARCHIVE_MATCH_LIMIT = 40; // max keyword-matched archive episodes
+
+const STOP_WORDS = new Set([
+  'the','a','an','and','or','but','for','to','of','in','on','at','with','from',
+  'is','are','was','were','be','been','being','have','has','had','do','does',
+  'did','will','would','should','could','can','may','might','must','i','you',
+  'me','my','your','we','us','our','they','their','about','some','any','all',
+  'no','not','one','two','also','want','need','tell','give','find','recommend',
+  'what','when','where','why','how','who','that','this','good','best','great',
+  'really','very','listen','listening','play','old','new','show','shows',
+  'episode','episodes','podcast','podcasts'
+]);
+
+function tokenize(text) {
+  return (text || '').toLowerCase()
+    .replace(/[^a-z0-9\s']/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOP_WORDS.has(w));
+}
+
 function buildCatalogBlock(latestUserMessage) {
   const lines = [];
+
+  // ── USER FILTER STATE ──────────────────────────────────────────────────
   lines.push('');
   lines.push('## USER FILTER STATE');
   if (filterState.topics.size === 0 && !filterState.popularity) {
@@ -902,30 +951,81 @@ function buildCatalogBlock(latestUserMessage) {
       lines.push('Popularity: Deep Pull. Prefer lower-popularity shows AND/OR older episodes from the back of each show\u2019s window. This is the listener asking for the deep cut.');
     }
   }
+
+  // ── SHOWS (always all 25, cheap) ──────────────────────────────────────
   lines.push('');
-  lines.push('## CATALOG WINDOW');
-  lines.push('You have ' + SHOWS.length + ' shows with ~30 most recent episodes each (' + EPISODES.length + ' episodes total). Reference shows as "Show. N" and episodes as "Ep. N" using the IDs below.');
+  lines.push('## SHOWS');
+  lines.push('All ' + SHOWS.length + ' shows in the catalog. Reference shows as "Show. N".');
   lines.push('');
-  lines.push('### SHOWS');
   for (const s of SHOWS) {
     const tags = (s.tags && s.tags.length) ? ' [' + s.tags.join(', ') + ']' : '';
     const pop = s.pop ? ' (' + s.pop + (s.score ? '/' + s.score : '') + ')' : '';
     lines.push('Show. ' + s.i + ': ' + s.t + ' · ' + (s.pub || '') + tags + pop);
   }
-  lines.push('');
-  lines.push('### EPISODES (most recent first within each show)');
-  // Group episodes by show for readability in prompt
+
+  // ── EPISODE WINDOW (built per turn) ────────────────────────────────────
+  const includedIds = new Set();
+
+  // 1. Baseline: most-recent per show
   for (const s of SHOWS) {
-    if (!s.eps.length) continue;
-    lines.push('');
+    if (!s.eps) continue;
+    for (const id of s.eps.slice(0, RECENT_PER_SHOW)) {
+      includedIds.add(id);
+    }
+  }
+
+  // 2. Tag boost: extra episodes from shows whose tags match active topics
+  if (filterState.topics.size > 0) {
+    for (const s of SHOWS) {
+      const matches = s.tags && s.tags.some(t => filterState.topics.has(t));
+      if (matches && s.eps) {
+        for (const id of s.eps.slice(0, TAG_BOOST_PER_SHOW)) {
+          includedIds.add(id);
+        }
+      }
+    }
+  }
+
+  // 3. Keyword matches: score archive episodes by title-keyword overlap
+  const keywords = tokenize(latestUserMessage);
+  if (keywords.length > 0) {
+    const scored = [];
+    for (const e of EPISODES) {
+      if (includedIds.has(e.i)) continue;
+      const titleLower = (e.t || '').toLowerCase();
+      let score = 0;
+      for (const kw of keywords) {
+        if (titleLower.includes(kw)) score += 1;
+      }
+      if (score > 0) scored.push({ id: e.i, score, iso: e.iso || '' });
+    }
+    scored.sort((a, b) =>
+      b.score - a.score || b.iso.localeCompare(a.iso)
+    );
+    for (const c of scored.slice(0, ARCHIVE_MATCH_LIMIT)) {
+      includedIds.add(c.id);
+    }
+  }
+
+  // ── EPISODES (windowed, grouped by show for readability) ──────────────
+  lines.push('');
+  lines.push('## EPISODES');
+  lines.push('Window: ' + includedIds.size + ' of ' + EPISODES.length + ' total episodes. The window covers the most recent episodes from every show plus episodes whose titles match the listener\u2019s message or active topic filters. Reference episodes as "Ep. N".');
+  lines.push('');
+  for (const s of SHOWS) {
+    if (!s.eps) continue;
+    const shown = s.eps.filter(id => includedIds.has(id));
+    if (shown.length === 0) continue;
     lines.push('-- Show. ' + s.i + ' (' + s.t + ') --');
-    for (const epId of s.eps) {
-      const e = EP_BY_ID[epId];
+    for (const id of shown) {
+      const e = EP_BY_ID[id];
       if (!e) continue;
       lines.push('Ep. ' + e.i + ': ' + e.t + ' (' + e.d + ')');
     }
+    lines.push('');
   }
-  lines.push('');
+
+  // ── RENDERING REMINDER ─────────────────────────────────────────────────
   lines.push('## RENDERING REMINDER');
   lines.push('- "Ep. N" in your reply renders an episode card with an Apple Podcasts listen link.');
   lines.push('- "Show. N" renders a show card with an "Explore this show" CTA.');
