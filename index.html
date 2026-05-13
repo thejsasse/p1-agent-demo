@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
-<title>P1 Agent — PodcastOne</title>
+<title>P1 Agent · PodcastOne</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230f0f10'/><g fill='%23ff6b3d'><rect x='6' y='13' width='3' height='6' rx='1.5'/><rect x='11' y='9' width='3' height='14' rx='1.5'/><rect x='16' y='6' width='3' height='20' rx='1.5'/><rect x='21' y='10' width='3' height='12' rx='1.5'/></g></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -129,7 +129,7 @@
     max-width: 540px;
   }
 
-  /* Filter rows — Topics + Popularity */
+  /* Filter rows: Topics + Popularity */
   .filter-group {
     display: flex;
     flex-direction: column;
@@ -292,7 +292,7 @@
     gap: 12px;
     flex-shrink: 0;
     padding-left: 12px;
-    animation: marquee 90s linear infinite;
+    animation: marquee 60s linear infinite;
     will-change: transform;
   }
   .tile-band:hover .tile-track { animation-play-state: paused; }
@@ -716,16 +716,16 @@
     <div class="empty-inner">
       <div>
         <h1 class="hero-greeting">What podcast are you in the mood for?</h1>
-        <p class="hero-sub">Tell us what you're after — a topic, a mood, a guest, the time you have — and we'll point you at something worth your time.</p>
+        <p class="hero-sub">Tell us what you're after. A topic, a mood, a guest, the time you have. We'll point you at something worth your time.</p>
       </div>
 
       <div class="filter-group">
-        <div class="filter-label">Topics — optional, pick any</div>
+        <div class="filter-label">Topics (optional, pick any)</div>
         <div class="chip-row" id="topicChips"></div>
       </div>
 
       <div class="filter-group">
-        <div class="filter-label">Popularity — optional, pick one</div>
+        <div class="filter-label">Popularity (optional, pick one)</div>
         <div class="chip-row" id="popChips"></div>
       </div>
 
@@ -758,7 +758,7 @@
       <div class="input-inner">
         <div class="active-filters" id="activeFilters"></div>
         <div class="input-wrap">
-          <textarea id="input" rows="1" placeholder="Keep going — ask for more, narrow the genre, or try a different mood…" maxlength="2000"></textarea>
+          <textarea id="input" rows="1" placeholder="Keep going. Ask for more, narrow the genre, or try a different mood…" maxlength="2000"></textarea>
           <button class="send-btn" id="sendBtn" disabled aria-label="Send">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/>
@@ -780,7 +780,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.1.2';
+const APP_VERSION = '0.1.3';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -818,24 +818,28 @@ const filterState = {
   popularity: null,        // single-select or null
 };
 
-// Starter prompts — NYT register, no exclamation marks, no emoji.
-// "Deep cut" starter removed in v0.1.2 — the concept now lives in the
+// Starter prompts. NYT register, no exclamation marks, no emoji, no em dashes.
+// "Deep cut" starter was removed in v0.1.2; the concept now lives in the
 // "Go Deeper" follow-up button beneath agent replies with cards.
+// v0.1.3: "Make me laugh" and "True crime" overlapped with the Topic chips,
+// so swapped to "Current Events" and "Adventurous" for unique levers.
 const STARTERS = [
-  { tag: 'Long drive',  text: 'Something I can put on for a long drive.' },
-  { tag: 'Make me laugh', text: 'Make me laugh — surprise me with something fresh.' },
-  { tag: 'True crime',  text: 'A true crime story I haven\u2019t heard.' },
+  { tag: 'Long drive',     text: 'Something I can put on for a long drive.' },
+  { tag: 'Current events', text: 'Something from the past week.' },
+  { tag: 'Adventurous',    text: 'Down for whatever.' },
 ];
 
 // ─── SYSTEM PROMPT ────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are the P1 Agent — the conversational front door for PodcastOne.ai. Your job is to route the listener from "what am I in the mood for" to a specific episode they can press play on, in as few turns as possible. They press play, you step back.
+const SYSTEM_PROMPT = `You are the P1 Agent, the conversational front door for PodcastOne.ai. Your job is to route the listener from "what am I in the mood for" to a specific episode they can press play on, in as few turns as possible. They press play, you step back.
 
 ## VOICE & REGISTER
 - Brand register is closer to a New York Times product surface than a Slack bot. Confident, restrained, observational. Casual but not playful. No emoji.
 - Speak about the catalog as if it is complete. Never narrate scope: do not say "I don't have that," "you'd want to browse the archive," "based on what I can see," or anything that flags the catalog window as partial.
 - Lead with one short sentence acknowledging the listener's interest before recommending. Don't open with "Great question" or "I'd love to help."
-- One closing question is fine if the conversation is still finding its angle. Once you've made a recommendation, let it land — don't keep them chatting unnecessarily.
+- One closing question is fine if the conversation is still finding its angle. Once you've made a recommendation, let it land. Don't keep them chatting unnecessarily.
 - Use prose. No bullet lists in default replies unless the user asks for a list.
+- **No em dashes (—) anywhere.** Use periods, commas, colons, or parentheses instead. Em dashes read as an AI tell.
+- **No "not X, but Y" / "it's not just X, it's Y" / "that's not X, that's Y" contrasts.** These are AI mannerisms. State what something is directly, without the contrast scaffolding.
 
 ## RECOMMENDATION RULES
 - Default reply: **1-3 episode or show cards.** Never more than 3. Less is better when one strong match exists. Don't pad.
@@ -843,9 +847,9 @@ const SYSTEM_PROMPT = `You are the P1 Agent — the conversational front door fo
 - When you have additional matches you didn't surface, tell them in one short line: "There are more if you want them." Then stop.
 - Reference episodes as **Ep. N** (with N being the global episode ID from the catalog window). The client renders an Apple Podcasts card automatically.
 - Reference shows as **Show. N** (with N being the show ID 1-25). The client renders a show card with an "Explore this show" CTA.
-- Only reference shows and episodes that appear in the catalog window. If a request doesn't fit what's in the window, pivot to the closest match — never narrate the gap.
+- Only reference shows and episodes that appear in the catalog window. If a request doesn't fit what's in the window, pivot to the closest match. Never narrate the gap.
 
-## THE CAROLLA DEEP-TIER HANDOFF — IMPORTANT
+## THE CAROLLA DEEP-TIER HANDOFF (IMPORTANT)
 The Adam Carolla Show has its own dedicated agent at a deeper layer with full archive access (6,000+ episodes vs. the 30-per-show window you see here). It is NOT in your catalog window.
 
 You should offer the Carolla deep-tier handoff **easily and often** when any of the following apply:
@@ -854,11 +858,11 @@ You should offer the Carolla deep-tier handoff **easily and often** when any of 
 - The user describes Carolla-shaped interests: interview-driven comedy, opinionated solo host, daily news commentary, car talk, construction, California politics, long-running daily podcasts.
 - The user asks for a "deep cut" or "deep pull" or wants to go further than the surface catalog.
 
-When you offer the handoff, write the literal marker **[carolla-deep]** on its own line in your reply. The client will render a distinct deep-tier card with a CTA that drops the user into the Carolla agent. Frame it as a "next layer" — they're going from the network concierge to the show's own concierge, with the full archive.
+When you offer the handoff, write the literal marker **[carolla-deep]** on its own line in your reply. The client will render a distinct deep-tier card with a CTA that drops the user into the Carolla agent. Frame it as a "next layer." They're going from the network concierge to the show's own concierge, with the full archive.
 
-You can offer the Carolla handoff *alongside* in-catalog recommendations — it's not an either/or. The deep-tier card is part of the value proposition for the listener.
+You can offer the Carolla handoff *alongside* in-catalog recommendations. Both can land in the same reply. The deep-tier card is part of the value proposition for the listener.
 
-## RESPONSE STYLE — PRE-SEND CHECKLIST
+## RESPONSE STYLE: PRE-SEND CHECKLIST
 Before every reply, run this check:
 1. Did I hedge about catalog scope? Strip it.
 2. Did I open with agency-speak ("Great question," "I'd love to," "Happy to help")? Strip it.
@@ -866,7 +870,9 @@ Before every reply, run this check:
 4. Am I respecting the user's active filter state (topics + popularity)?
 5. If the conversation is Comedy-adjacent or the user wants something deep, did I include [carolla-deep]?
 6. Did I reference anything not in the catalog window? Strip it.
-7. Am I keeping them in chat when I should be sending them to press play? Wrap up.`;
+7. **Did I use an em dash?** Replace it with a period, comma, colon, or parens.
+8. **Did I use a "not X, but Y" / "it's not just X, it's Y" contrast?** Strip it. State things directly.
+9. Am I keeping them in chat when I should be sending them to press play? Wrap up.`;
 
 // ─── CATALOG WINDOW BUILDER ──────────────────────────────────────────────
 function buildCatalogBlock(latestUserMessage) {
@@ -896,7 +902,7 @@ function buildCatalogBlock(latestUserMessage) {
   for (const s of SHOWS) {
     const tags = (s.tags && s.tags.length) ? ' [' + s.tags.join(', ') + ']' : '';
     const pop = s.pop ? ' (' + s.pop + (s.score ? '/' + s.score : '') + ')' : '';
-    lines.push('Show. ' + s.i + ' — ' + s.t + ' · ' + (s.pub || '') + tags + pop);
+    lines.push('Show. ' + s.i + ': ' + s.t + ' · ' + (s.pub || '') + tags + pop);
   }
   lines.push('');
   lines.push('### EPISODES (most recent first within each show)');
@@ -908,7 +914,7 @@ function buildCatalogBlock(latestUserMessage) {
     for (const epId of s.eps) {
       const e = EP_BY_ID[epId];
       if (!e) continue;
-      lines.push('Ep. ' + e.i + ' — ' + e.t + ' (' + e.d + ')');
+      lines.push('Ep. ' + e.i + ': ' + e.t + ' (' + e.d + ')');
     }
   }
   lines.push('');
@@ -994,7 +1000,7 @@ function makeTile(s) {
   });
   return tile;
 }
-// Render the tile set twice — the CSS animation translates -50%, so the
+// Render the tile set twice. The CSS animation translates -50%, so the
 // second copy fills the visible area as the first copy scrolls off, giving
 // a seamless loop.
 tileOrder.forEach(s => tileTrack.appendChild(makeTile(s)));
@@ -1161,7 +1167,7 @@ function renderCarollaDeepCard() {
     '</div>' +
     '<div class="card-body">' +
       '<div class="card-kicker">Deep Tier · The Adam Carolla Show</div>' +
-      '<div class="card-title">The full Adam Carolla archive — dedicated agent</div>' +
+      '<div class="card-title">The full Adam Carolla archive. Dedicated agent.</div>' +
       '<div class="card-meta">6,000+ episodes, 15+ years. Drop into the show\u2019s own concierge.</div>' +
       '<div class="card-actions">' +
         '<span class="card-cta">Open the Carolla agent →</span>' +
@@ -1219,7 +1225,7 @@ function addMessage(role, text) {
       const deeperBtn = document.createElement('button');
       deeperBtn.className = 'followup-btn';
       deeperBtn.textContent = 'Go deeper';
-      deeperBtn.addEventListener('click', () => sendFollowup('Take me deeper \u2014 older episodes or less-obvious picks.'));
+      deeperBtn.addEventListener('click', () => sendFollowup('Take me deeper. Older episodes or less-obvious picks.'));
       followups.appendChild(moreBtn);
       followups.appendChild(deeperBtn);
       bubble.appendChild(followups);
@@ -1359,7 +1365,7 @@ async function sendMessage() {
       throw new Error((err.error && err.error.message) || ('HTTP ' + response.status));
     }
     const data = await response.json();
-    const reply = (data.content && data.content[0] && data.content[0].text) || 'I hit a snag on my end — try again in a moment.';
+    const reply = (data.content && data.content[0] && data.content[0].text) || 'I hit a snag on my end. Try again in a moment.';
     addMessage('agent', reply);
     conversation.push({ role: 'assistant', content: reply });
   } catch (err) {
