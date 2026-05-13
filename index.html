@@ -499,13 +499,20 @@
     font-family: var(--sans);
     font-size: 0.78rem;
     color: var(--text-muted);
-    margin-bottom: 8px;
+  }
+  .card-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
   }
   .card-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 6px;
+    margin-top: 10px;
   }
   .card-cta {
     display: inline-flex;
@@ -732,7 +739,7 @@
       <div class="starters" id="starters"></div>
 
       <div class="hero-input-wrap">
-        <textarea id="heroInput" rows="1" placeholder="Ask about a topic, vibe, guest, or how much time you have…" maxlength="2000"></textarea>
+        <textarea id="heroInput" rows="1" placeholder="What kind of shows are you looking for?" maxlength="2000"></textarea>
         <button class="hero-send-btn" id="heroSendBtn" disabled aria-label="Send">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="19" x2="12" y2="5"/>
@@ -780,7 +787,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.1.3';
+const APP_VERSION = '0.1.4';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -824,7 +831,7 @@ const filterState = {
 // v0.1.3: "Make me laugh" and "True crime" overlapped with the Topic chips,
 // so swapped to "Current Events" and "Adventurous" for unique levers.
 const STARTERS = [
-  { tag: 'Long drive',     text: 'Something I can put on for a long drive.' },
+  { tag: 'Long drive',     text: 'Podcasts to drive to.' },
   { tag: 'Current events', text: 'Something from the past week.' },
   { tag: 'Adventurous',    text: 'Down for whatever.' },
 ];
@@ -1118,10 +1125,10 @@ function renderEpisodeCard(epId) {
   card.innerHTML =
     '<img class="card-art" src="' + escapeAttr(show ? show.img : '') + '" alt="">' +
     '<div class="card-body">' +
-      '<div class="card-kicker">Episode · ' + escapeHtml(show ? show.t : '') + '</div>' +
+      '<div class="card-kicker">Ep. ' + ep.i + ' · ' + escapeHtml(show ? show.t : '') + '</div>' +
       '<div class="card-title">' + escapeHtml(ep.t) + '</div>' +
-      '<div class="card-meta">' + escapeHtml(ep.d) + '</div>' +
-      '<div class="card-actions">' +
+      '<div class="card-footer">' +
+        '<div class="card-meta">' + escapeHtml(ep.d) + '</div>' +
         '<span class="card-cta">Listen on Apple Podcasts →</span>' +
       '</div>' +
     '</div>';
@@ -1142,10 +1149,10 @@ function renderShowCard(showId) {
   card.innerHTML =
     '<img class="card-art" src="' + escapeAttr(s.img) + '" alt="">' +
     '<div class="card-body">' +
-      '<div class="card-kicker">Show · ' + escapeHtml(s.pub || '') + '</div>' +
+      '<div class="card-kicker">Show. ' + s.i + ' · ' + escapeHtml(s.pub || '') + '</div>' +
       '<div class="card-title">' + escapeHtml(s.t) + '</div>' +
-      '<div class="card-meta">' + escapeHtml((s.tags || []).join(' · ')) + '</div>' +
-      '<div class="card-actions">' +
+      '<div class="card-footer">' +
+        '<div class="card-meta">' + escapeHtml((s.tags || []).join(' · ')) + '</div>' +
         '<span class="card-cta">Explore this show →</span>' +
       '</div>' +
     '</div>';
