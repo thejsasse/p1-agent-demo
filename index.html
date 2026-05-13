@@ -141,7 +141,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--text-faint);
+    color: var(--accent);
   }
   .chip-row {
     display: flex;
@@ -696,6 +696,7 @@
     .tile-art { height: 104px; }
     .card { padding: 12px; gap: 12px; }
     .card-art, .card.deep .card-art-deep { width: 56px; height: 56px; }
+    .starters { display: none; }
   }
 </style>
 </head>
@@ -787,7 +788,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.1.4';
+const APP_VERSION = '0.1.5';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
