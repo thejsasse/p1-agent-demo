@@ -15,6 +15,7 @@
     --bg-elev-2:   #1c1c20;
     --border:       #26262b;
     --border-soft:  #1e1e22;
+    --border-strong: #4a4a52;
     --accent:       #ff6b3d;
     --accent-dim:   rgba(255,107,61,0.12);
     --accent-glow:  rgba(255,107,61,0.25);
@@ -211,8 +212,8 @@
   /* Hero input */
   .hero-input-wrap {
     position: relative;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-strong);
     border-radius: 14px;
     padding: 4px 4px 4px 18px;
     display: flex;
@@ -396,6 +397,7 @@
   .bubble p { margin: 0 0 8px; }
   .bubble p:last-child { margin-bottom: 0; }
   .bubble strong { color: var(--text); font-weight: 600; }
+  .show-title { color: var(--accent); font-weight: 600; }
   .bubble em { color: var(--text-dim); font-style: italic; }
 
   .typing {
@@ -557,7 +559,7 @@
   }
   .followup-btn {
     background: transparent;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     color: var(--text-dim);
     padding: 7px 14px;
     border-radius: 999px;
@@ -620,8 +622,8 @@
   }
   .active-filters .pill button:hover { opacity: 1; }
   .input-wrap {
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-strong);
     border-radius: 12px;
     padding: 4px 4px 4px 16px;
     display: flex;
@@ -724,7 +726,7 @@
     <div class="empty-inner">
       <div>
         <h1 class="hero-greeting">What podcast are you in the mood for?</h1>
-        <p class="hero-sub">Tell us what you're after. A topic, a mood, a guest, the time you have. We'll point you at something worth your time.</p>
+        <p class="hero-sub">Tell what you're into or what you've been missing and we'll find something fun for you.</p>
       </div>
 
       <div class="filter-group">
@@ -788,7 +790,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.1.6';
+const APP_VERSION = '0.1.7';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -853,8 +855,8 @@ const SYSTEM_PROMPT = `You are the P1 Agent, the conversational front door for P
 - Default reply: **1-3 episode or show cards.** Never more than 3. Less is better when one strong match exists. Don't pad.
 - If the user explicitly asks for more, you may surface up to 5 in the follow-up. Five is the ceiling.
 - When you have additional matches you didn't surface, tell them in one short line: "There are more if you want them." Then stop.
-- Reference episodes as **Ep. N** (with N being the global episode ID from the catalog window). The client renders an Apple Podcasts card automatically.
-- Reference shows as **Show. N** (with N being the show ID 1-25). The client renders a show card with an "Explore this show" CTA.
+- **In your prose, refer to shows and episodes by their full title.** Example: "This Is Monsters covers the Wanda Beach murders, an Australian cold case..." NEVER write "Ep. 273" or "Show. 4" inside a sentence. The numeric markers are reserved for card rendering only.
+- **To render a card, put the marker on its OWN LINE**, not in a sentence. Write "Ep. N" alone on a line to render an episode card (N is the global episode ID from the catalog window). Write "Show. N" alone on a line to render a show card (N is the show ID 1-25). The client strips these marker lines from the visible response and renders the card directly beneath your prose.
 - Only reference shows and episodes that appear in the catalog window. If a request doesn't fit what's in the window, pivot to the closest match. Never narrate the gap.
 
 ## THE CAROLLA DEEP-TIER HANDOFF (IMPORTANT)
@@ -874,13 +876,14 @@ You can offer the Carolla handoff *alongside* in-catalog recommendations. Both c
 Before every reply, run this check:
 1. Did I hedge about catalog scope? Strip it.
 2. Did I open with agency-speak ("Great question," "I'd love to," "Happy to help")? Strip it.
-3. Count my Ep. N + Show. N references. Default: max 3. Follow-up "give me more": max 5.
-4. Am I respecting the user's active filter state (topics + popularity)?
-5. If the conversation is Comedy-adjacent or the user wants something deep, did I include [carolla-deep]?
-6. Did I reference anything not in the catalog window? Strip it.
-7. **Did I use an em dash?** Replace it with a period, comma, colon, or parens.
-8. **Did I use a "not X, but Y" / "it's not just X, it's Y" contrast?** Strip it. State things directly.
-9. Am I keeping them in chat when I should be sending them to press play? Wrap up.`;
+3. Count my Ep./Show. marker lines. Default: max 3 cards. Follow-up "give me more": max 5.
+4. Did I write "Ep. N" or "Show. N" inside any sentence? If yes, rewrite using the title. Markers belong on their own line.
+5. Am I respecting the user's active filter state (topics + popularity)?
+6. If the conversation is Comedy-adjacent or the user wants something deep, did I include [carolla-deep]?
+7. Did I reference anything not in the catalog window? Strip it.
+8. **Did I use an em dash?** Replace it with a period, comma, colon, or parens.
+9. **Did I use a "not X, but Y" / "it's not just X, it's Y" contrast?** Strip it. State things directly.
+10. Am I keeping them in chat when I should be sending them to press play? Wrap up.`;
 
 // ─── CATALOG WINDOW BUILDER ──────────────────────────────────────────────
 //
@@ -1027,9 +1030,11 @@ function buildCatalogBlock(latestUserMessage) {
 
   // ── RENDERING REMINDER ─────────────────────────────────────────────────
   lines.push('## RENDERING REMINDER');
-  lines.push('- "Ep. N" in your reply renders an episode card with an Apple Podcasts listen link.');
-  lines.push('- "Show. N" renders a show card with an "Explore this show" CTA.');
-  lines.push('- "[carolla-deep]" on its own line renders the deep-tier handoff card.');
+  lines.push('- Reference shows and episodes by their full title in your prose.');
+  lines.push('- "Ep. N" on its OWN LINE renders an episode card. The marker line is stripped from the visible response.');
+  lines.push('- "Show. N" on its OWN LINE renders a show card. The marker line is stripped from the visible response.');
+  lines.push('- "[carolla-deep]" on its OWN LINE renders the deep-tier handoff card.');
+  lines.push('- Never write "Ep. N" or "Show. N" inside a sentence. Those tokens are reserved for card rendering only.');
   return lines.join('\n');
 }
 
@@ -1175,6 +1180,35 @@ function paragraphize(text) {
   ).join('');
 }
 
+// Show titles, escaped + sorted longest first so substring titles don't break
+// already-wrapped longer titles during the highlight pass.
+const SHOW_TITLES_HL = SHOWS
+  .map(s => s.t)
+  .filter(Boolean)
+  .sort((a, b) => b.length - a.length)
+  .map(t => ({
+    escaped: escapeHtml(t),
+    regex: new RegExp(
+      escapeHtml(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+      'gi'
+    )
+  }));
+
+function highlightShowTitles(html) {
+  // Two-pass: first replace matches with placeholders (so a shorter title
+  // can't match inside an already-wrapped longer title), then expand back.
+  const stash = [];
+  for (const { regex } of SHOW_TITLES_HL) {
+    html = html.replace(regex, match => {
+      stash.push(match);
+      return '\x00ST' + (stash.length - 1) + '\x00';
+    });
+  }
+  return html.replace(/\x00ST(\d+)\x00/g, (_, i) =>
+    '<span class="show-title">' + stash[parseInt(i, 10)] + '</span>'
+  );
+}
+
 function extractReferences(text) {
   // Returns ordered list of {kind: 'ep'|'show'|'deep', id?: number}
   const refs = [];
@@ -1208,8 +1242,26 @@ function extractReferences(text) {
 }
 
 function stripMarkers(text) {
-  // Hide [carolla-deep] from the rendered text (it becomes a card instead)
-  return text.replace(/\[carolla-deep\]\s*/gi, '');
+  // [carolla-deep] becomes a card, hide the literal marker
+  text = text.replace(/\[carolla-deep\]\s*/gi, '');
+
+  // Standalone Ep. N / Show. N lines: strip the whole line including its newline.
+  // This is the intended pattern per the system prompt — the agent puts the
+  // marker on its own line to render a card, and we strip the line from the
+  // visible response.
+  text = text.replace(/^[ \t]*(?:Ep(?:isode)?|Show)\.?\s*\d{1,4}[ \t]*\r?\n?/gim, '');
+
+  // Defensive: inline Ep. N / Show. N (against the rule, but agent slips happen).
+  // Strip the token and trailing space. The remaining prose may be slightly
+  // ungrammatical, which is a louder signal to fix the rule than letting a
+  // bare internal ID leak into the UI.
+  text = text.replace(/\bEp(?:isode)?\.?\s*\d{1,4}\b[ \t]*/gi, '');
+  text = text.replace(/\bShow\.?\s*\d{1,4}\b[ \t]*/gi, '');
+
+  // Collapse runs of blank lines that may result
+  text = text.replace(/\n{3,}/g, '\n\n').replace(/^\s+|\s+$/g, '');
+
+  return text;
 }
 
 function renderEpisodeCard(epId) {
@@ -1226,7 +1278,7 @@ function renderEpisodeCard(epId) {
   card.innerHTML =
     '<img class="card-art" src="' + escapeAttr(show ? show.img : '') + '" alt="">' +
     '<div class="card-body">' +
-      '<div class="card-kicker">Ep. ' + ep.i + ' · ' + escapeHtml(show ? show.t : '') + '</div>' +
+      '<div class="card-kicker">Episode · ' + escapeHtml(show ? show.t : '') + '</div>' +
       '<div class="card-title">' + escapeHtml(ep.t) + '</div>' +
       '<div class="card-footer">' +
         '<div class="card-meta">' + escapeHtml(ep.d) + '</div>' +
@@ -1250,7 +1302,7 @@ function renderShowCard(showId) {
   card.innerHTML =
     '<img class="card-art" src="' + escapeAttr(s.img) + '" alt="">' +
     '<div class="card-body">' +
-      '<div class="card-kicker">Show. ' + s.i + ' · ' + escapeHtml(s.pub || '') + '</div>' +
+      '<div class="card-kicker">Show · ' + escapeHtml(s.pub || '') + '</div>' +
       '<div class="card-title">' + escapeHtml(s.t) + '</div>' +
       '<div class="card-footer">' +
         '<div class="card-meta">' + escapeHtml((s.tags || []).join(' · ')) + '</div>' +
@@ -1296,7 +1348,9 @@ function addMessage(role, text) {
   const bubble = document.createElement('div');
   bubble.className = 'bubble ' + role;
   const cleaned = stripMarkers(text);
-  bubble.innerHTML = paragraphize(cleaned);
+  let html = paragraphize(cleaned);
+  if (role === 'agent') html = highlightShowTitles(html);
+  bubble.innerHTML = html;
 
   if (role === 'agent') {
     const refs = extractReferences(text);
