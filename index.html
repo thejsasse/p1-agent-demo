@@ -706,6 +706,7 @@
     .tile, .tile-art { width: 104px; }
     .tile-art { height: 104px; }
     .card { padding: 12px; gap: 12px; }
+    .card-art, .card.deep .card-art-deep { width: 92px; height: 92px; }
     .starters { display: none; }
   }
 </style>
@@ -798,7 +799,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.2.4';
+const APP_VERSION = '0.2.5';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -1455,6 +1456,16 @@ function sizeCardArt(card) {
   const body = card.querySelector('.card-body');
   const art = card.querySelector('.card-art, .card-art-deep');
   if (!body || !art) return;
+  // On narrow screens, matching the art to the body height is self-defeating:
+  // the art eats horizontal width, which makes the body wrap taller, which
+  // grows the art. Mobile uses a fixed size from the CSS media query instead.
+  // Clearing the inline styles lets that rule apply (matters when resizing
+  // down from desktop, where inline px were set).
+  if (window.matchMedia('(max-width: 640px)').matches) {
+    art.style.width = '';
+    art.style.height = '';
+    return;
+  }
   for (let pass = 0; pass < 2; pass++) {
     const h = body.offsetHeight;
     if (h > 0) {
