@@ -281,25 +281,27 @@
   }
   .tile-band {
     display: flex;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     margin: 0 -28px;
     padding: 8px 0;
     position: relative;
+    cursor: grab;
+    touch-action: pan-x;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
     mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
   }
+  .tile-band::-webkit-scrollbar { display: none; }
+  .tile-band.grabbing { cursor: grabbing; }
+  .tile-band.grabbing .tile { cursor: grabbing; }
   .tile-track {
     display: flex;
     gap: 12px;
     flex-shrink: 0;
     padding-left: 12px;
-    animation: marquee 60s linear infinite;
-    will-change: transform;
-  }
-  .tile-band:hover .tile-track { animation-play-state: paused; }
-  @keyframes marquee {
-    0%   { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
+    will-change: scroll-position;
   }
   .tile {
     flex-shrink: 0;
@@ -725,8 +727,8 @@
   <section class="empty-state" id="emptyState">
     <div class="empty-inner">
       <div>
-        <h1 class="hero-greeting">What podcast are you in the mood for?</h1>
-        <p class="hero-sub">Tell what you're into or what you've been missing and we'll find something fun for you.</p>
+        <h1 class="hero-greeting">Let us help you find your next podcast listen.</h1>
+        <p class="hero-sub">Tell me what you're into or what you've been missing and I'll bring you some new listening options.</p>
       </div>
 
       <div class="filter-group">
@@ -768,7 +770,7 @@
       <div class="input-inner">
         <div class="active-filters" id="activeFilters"></div>
         <div class="input-wrap">
-          <textarea id="input" rows="1" placeholder="Keep going. Ask for more, narrow the genre, or try a different mood…" maxlength="2000"></textarea>
+          <textarea id="input" rows="1" placeholder="Keep it going, maybe share what shows you already like…" maxlength="2000"></textarea>
           <button class="send-btn" id="sendBtn" disabled aria-label="Send">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/>
@@ -790,7 +792,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.1.7';
+const APP_VERSION = '0.1.8';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -1092,20 +1094,43 @@ STARTERS.forEach(s => {
   startersEl.appendChild(b);
 });
 
-// ─── UI: TILE BAND (marquee, right-to-left, paused on hover) ──────────────
+// ─── UI: TILE BAND (JS-driven: auto-scroll + drag + infinite loop) ───────
 const tileBandEl = document.getElementById('tileBand');
 const tileTrack = document.createElement('div');
 tileTrack.className = 'tile-track';
 // Order by listen score desc; fall back to position
 const tileOrder = [...SHOWS].sort((a, b) => (b.score || 0) - (a.score || 0));
+
+// ── Tile band tuning knobs ──────────────────────────────────────────────
+// Auto-scroll speed in pixels per second. The old CSS marquee ran at
+// ~57 px/s; this is ~1.5x that. Tune freely, it is refresh-rate independent.
+const TILE_AUTO_PXPS = 85;
+// Pixels of pointer movement before a press counts as a drag (and the
+// tile's click is suppressed).
+const TILE_DRAG_THRESHOLD = 4;
+
+// Drag + interaction state. Declared before makeTile so the tile click
+// handler can read dragMoved.
+let tileHovering   = false;
+let tilePointerDown = false;  // any pointer (mouse or touch) is down: pause auto-scroll
+let tileDragging   = false;   // mouse drag actively driving scrollLeft
+let tileDragStartX = 0;
+let tileDragStartScroll = 0;
+let tileDragMoved  = false;
+const tilePrefersReducedMotion =
+  window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 function makeTile(s) {
   const tile = document.createElement('div');
   tile.className = 'tile';
   const safeName = escapeHtml(s.t);
   tile.innerHTML =
-    '<img class="tile-art" src="' + escapeAttr(s.img) + '" alt="' + safeName + ' artwork" loading="lazy">' +
+    '<img class="tile-art" src="' + escapeAttr(s.img) + '" alt="' + safeName + ' artwork" loading="lazy" draggable="false">' +
     '<div class="tile-name" title="' + safeName + '">' + safeName + '</div>';
   tile.addEventListener('click', () => {
+    // A drag ended on this tile: swallow the click so dragging the band
+    // doesn't accidentally fire a recommendation.
+    if (tileDragMoved) return;
     heroInput.value = 'Tell me more about ' + s.t + '.';
     heroAutoResize();
     heroSendBtn.disabled = false;
@@ -1113,16 +1138,92 @@ function makeTile(s) {
   });
   return tile;
 }
-// Render the tile set twice. The CSS animation translates -50%, so the
-// second copy fills the visible area as the first copy scrolls off, giving
-// a seamless loop.
-tileOrder.forEach(s => tileTrack.appendChild(makeTile(s)));
-tileOrder.forEach(s => {
-  const t = makeTile(s);
-  t.setAttribute('aria-hidden', 'true');
-  tileTrack.appendChild(t);
-});
+
+// Render the tile set THREE times. We park the scroll position in the
+// middle copy so a drag can loop seamlessly in either direction: crossing
+// out of the middle copy snaps back by one set width, which is invisible
+// because all three copies are identical.
+const TILE_COPIES = 3;
+for (let copy = 0; copy < TILE_COPIES; copy++) {
+  tileOrder.forEach(s => {
+    const t = makeTile(s);
+    if (copy !== 0) t.setAttribute('aria-hidden', 'true');
+    tileTrack.appendChild(t);
+  });
+}
 tileBandEl.appendChild(tileTrack);
+
+// One set width = total scrollable width / number of copies.
+function tileSetWidth() {
+  return tileTrack.scrollWidth / TILE_COPIES;
+}
+// Keep the scroll position inside the middle copy. Called every frame, so
+// it also wraps manual drags.
+function tileWrap() {
+  const set = tileSetWidth();
+  if (set <= 0) return;
+  if (tileBandEl.scrollLeft >= set * 2) {
+    tileBandEl.scrollLeft -= set;
+  } else if (tileBandEl.scrollLeft < set) {
+    tileBandEl.scrollLeft += set;
+  }
+}
+// Start parked in the middle copy. Done in rAF so layout (and thus
+// scrollWidth) is settled.
+requestAnimationFrame(() => {
+  tileBandEl.scrollLeft = tileSetWidth();
+});
+
+// Hover pauses auto-scroll (desktop affordance, preserved from the marquee).
+tileBandEl.addEventListener('mouseenter', () => { tileHovering = true; });
+tileBandEl.addEventListener('mouseleave', () => { tileHovering = false; });
+
+// Pointer drag. Touch uses native scroll (touch-action: pan-x), so for
+// touch we only set the pause flag. Mouse has no native drag-scroll, so we
+// drive scrollLeft manually via document-level move/up listeners.
+tileBandEl.addEventListener('pointerdown', (e) => {
+  tilePointerDown = true;
+  tileDragMoved = false;
+  if (e.pointerType === 'touch') return; // native scroll handles touch
+  tileDragging = true;
+  tileDragStartX = e.clientX;
+  tileDragStartScroll = tileBandEl.scrollLeft;
+  tileBandEl.classList.add('grabbing');
+  e.preventDefault(); // suppress text/image selection during drag
+});
+document.addEventListener('pointermove', (e) => {
+  if (!tileDragging) return;
+  const delta = e.clientX - tileDragStartX;
+  if (Math.abs(delta) > TILE_DRAG_THRESHOLD) tileDragMoved = true;
+  tileBandEl.scrollLeft = tileDragStartScroll - delta;
+});
+function tileEndPointer() {
+  tilePointerDown = false;
+  if (tileDragging) {
+    tileDragging = false;
+    tileBandEl.classList.remove('grabbing');
+  }
+}
+document.addEventListener('pointerup', tileEndPointer);
+document.addEventListener('pointercancel', tileEndPointer);
+
+// Auto-advance loop. Time-based so it is consistent across 60/120Hz
+// displays. Paused while hovering, while a pointer is down, or when the
+// user prefers reduced motion. Wrap runs every frame regardless so manual
+// drags loop too.
+let tileLastTs = null;
+function tileTick(ts) {
+  if (tileLastTs == null) tileLastTs = ts;
+  const dt = ts - tileLastTs;
+  tileLastTs = ts;
+  const paused = tileHovering || tilePointerDown || tilePrefersReducedMotion;
+  if (!paused) {
+    tileBandEl.scrollLeft += TILE_AUTO_PXPS * (dt / 1000);
+  }
+  tileWrap();
+  requestAnimationFrame(tileTick);
+}
+requestAnimationFrame(tileTick);
 
 // ─── ACTIVE FILTERS DISPLAY (chat state) ──────────────────────────────────
 const activeFiltersEl = document.getElementById('activeFilters');
