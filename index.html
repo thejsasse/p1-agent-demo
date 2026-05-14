@@ -546,6 +546,7 @@
     color: var(--text);
     background: var(--accent-dim);
   }
+  .cta-short { display: none; }
   .card.deep .card-cta {
     background: var(--accent);
     color: var(--bg);
@@ -707,6 +708,8 @@
     .tile-art { height: 104px; }
     .card { padding: 12px; gap: 12px; }
     .card-art, .card.deep .card-art-deep { width: 92px; height: 92px; }
+    .card-cta .cta-full { display: none; }
+    .card-cta .cta-short { display: inline; }
     .starters { display: none; }
   }
 </style>
@@ -799,7 +802,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.2.5';
+const APP_VERSION = '0.2.6';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -1391,7 +1394,7 @@ function renderEpisodeCard(epId) {
       '<div class="card-title">' + escapeHtml(ep.t) + '</div>' +
       '<div class="card-footer">' +
         '<div class="card-meta">' + escapeHtml(ep.d) + '</div>' +
-        '<span class="card-cta">Listen on Apple Podcasts →</span>' +
+        '<span class="card-cta"><span class="cta-full">Listen on Apple Podcasts →</span><span class="cta-short">Listen →</span></span>' +
       '</div>' +
     '</div>';
   return card;
