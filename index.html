@@ -728,7 +728,7 @@
     <div class="empty-inner">
       <div>
         <h1 class="hero-greeting">Let us help you find your next podcast listen.</h1>
-        <p class="hero-sub">Tell me what you're into or what you've been missing and I'll bring you some new listening options.</p>
+        <p class="hero-sub">Tell me what you're into or what you've been missing, and I'll find you new shows.</p>
       </div>
 
       <div class="filter-group">
@@ -758,7 +758,7 @@
       </div>
       <div id="heroErrorNote" class="error-note" style="display:none;"></div>
 
-      <div class="tile-band-label">In the network</div>
+      <div class="tile-band-label">Explore trending shows</div>
       <div class="tile-band" id="tileBand"></div>
     </div>
   </section>
@@ -792,7 +792,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.1.8';
+const APP_VERSION = '0.1.9';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -1103,8 +1103,9 @@ const tileOrder = [...SHOWS].sort((a, b) => (b.score || 0) - (a.score || 0));
 
 // ── Tile band tuning knobs ──────────────────────────────────────────────
 // Auto-scroll speed in pixels per second. The old CSS marquee ran at
-// ~57 px/s; this is ~1.5x that. Tune freely, it is refresh-rate independent.
-const TILE_AUTO_PXPS = 85;
+// ~57 px/s; this is just above that. Tune freely, it is refresh-rate
+// independent.
+const TILE_AUTO_PXPS = 60;
 // Pixels of pointer movement before a press counts as a drag (and the
 // tile's click is suppressed).
 const TILE_DRAG_THRESHOLD = 4;
