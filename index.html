@@ -215,7 +215,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--accent);
+    color: var(--text);
   }
   .chip-row {
     display: flex;
@@ -441,9 +441,9 @@
     color: var(--bg);
   }
   .avatar.user {
-    background: var(--bg-elev-2);
-    color: var(--text-dim);
-    border: 1px solid var(--border);
+    background: #0A84FF;
+    color: #ffffff;
+    border: 1px solid #0A84FF;
   }
   .bubble {
     padding: 4px 0;
@@ -464,8 +464,9 @@
     padding: 14px 18px;
   }
   .msg-row.user .bubble {
-    background: var(--bg-elev-2);
-    border: 1px solid var(--border-soft);
+    background: #0A84FF;
+    color: #ffffff;
+    border: 1px solid #0A84FF;
     border-radius: 14px;
     padding: 10px 14px;
     max-width: calc(100% - 44px);
@@ -842,9 +843,8 @@
       rgba(12, 12, 14, 0.85) 40%,
       transparent 100%);
   }
-  /* Dim wall in chat mode so message bubbles read cleanly. The state-chat
-     class is toggled on <body> (despite the variable name appBody in the JS
-     pointing at document.body), so this selector matches there directly. */
+  /* Dim wall in chat mode so message bubbles read cleanly. state-chat is
+     toggled on <body> when a conversation starts. */
   body.state-chat .wall { opacity: 0.2; }
   /* Header + app-body sit above scrims. Header keeps its position:absolute
      from the earlier rule; this rule was previously overriding it with
@@ -915,7 +915,7 @@
   <section class="empty-state" id="emptyState">
     <div class="empty-inner">
       <div>
-        <h1 class="hero-greeting">Let us help you find your next <span class="stamp">podcast obsession</span>.</h1>
+        <h1 class="hero-greeting">Let's find your next <span class="stamp">podcast obsession</span>.</h1>
         <p class="hero-sub">Tell me what you're into or what you've been missing, and I'll find you new shows.</p>
       </div>
 
@@ -975,7 +975,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.4.8';
+const APP_VERSION = '0.5.0';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -1047,15 +1047,16 @@ const SYSTEM_PROMPT = `You are the P1 Agent, the conversational front door for P
 ## THE CAROLLA DEEP-TIER HANDOFF (IMPORTANT)
 The Adam Carolla Show has its own dedicated agent at a deeper layer with full archive access (6,000+ episodes vs. the 30-per-show window you see here). It is NOT in your catalog window.
 
-You should offer the Carolla deep-tier handoff **easily and often** when any of the following apply:
+**Going deeper on the show in focus comes FIRST.** When a user says "go deeper," "more like this," "older episodes," "deep cuts," or "obscure picks" while a specific non-Carolla show is the focus of the conversation, your first move is to surface 2-3 older or less-obvious episodes from THAT show's 30-episode window. Dig past the top-of-feed recent picks. Do not pivot to a different show.
+
+You should offer the Carolla deep-tier handoff when any of the following apply:
 - The user mentions Adam Carolla, the Adam Carolla Show, Loveline, The Man Show, or Carolla by name.
-- The user selects or implies the Comedy topic, or asks for comedy in any phrasing.
 - The user describes Carolla-shaped interests: interview-driven comedy, opinionated solo host, daily news commentary, car talk, construction, California politics, long-running daily podcasts.
-- The user asks for a "deep cut" or "deep pull" or wants to go further than the surface catalog.
+- The user selects or implies the Comedy topic AND no specific show is currently the focus of conversation.
 
-When you offer the handoff, write the literal marker **[carolla-deep]** on its own line in your reply. The client will render a distinct deep-tier card with a CTA that drops the user into the Carolla agent. Frame it as a "next layer." They're going from the network concierge to the show's own concierge, with the full archive.
+When a non-Carolla show IS in focus and the user asks for depth, the Carolla card may appear as an ADDITIONAL option alongside the in-catalog picks, but never as the headline of the response. Lead with the show the user is actually engaged with.
 
-You can offer the Carolla handoff *alongside* in-catalog recommendations. Both can land in the same reply. The deep-tier card is part of the value proposition for the listener.
+When you offer the handoff, write the literal marker **[carolla-deep]** on its own line in your reply. The client will render a distinct deep-tier card with a CTA that drops the user into the Carolla agent. Frame it as a "next layer."
 
 ## RESPONSE STYLE: PRE-SEND CHECKLIST
 Before every reply, run this check:
@@ -1064,7 +1065,7 @@ Before every reply, run this check:
 3. Count my Ep./Show. marker lines. Default: max 3 cards. Follow-up "give me more": max 5.
 4. Did I write "Ep. N" or "Show. N" inside any sentence? If yes, rewrite using the title. Markers belong on their own line.
 5. Am I respecting the user's active filter state (topics + popularity)?
-6. If the conversation is Comedy-adjacent or the user wants something deep, did I include [carolla-deep]?
+6. If the user is asking for more depth on a specific show in focus, did I prioritize older or less-obvious episodes of THAT show before any pivot? Carolla card may be additional, never the lead.
 7. Did I reference anything not in the catalog window? Strip it.
 8. **Did I use an em dash?** Replace it with a period, comma, colon, or parens.
 9. **Did I use a "not X, but Y" / "it's not just X, it's Y" contrast?** Strip it. State things directly.
@@ -1856,10 +1857,10 @@ function removeTyping() {
 }
 
 // ─── STATE TOGGLING ───────────────────────────────────────────────────────
-const appBody = document.body;
+const bodyEl = document.body;
 function switchToChat() {
-  appBody.classList.remove('state-empty');
-  appBody.classList.add('state-chat');
+  bodyEl.classList.remove('state-empty');
+  bodyEl.classList.add('state-chat');
   if (!isMobile()) setTimeout(() => inputEl.focus(), 100);
 }
 function clearConversation() {
@@ -1867,8 +1868,8 @@ function clearConversation() {
   messagesEl.innerHTML = '';
   errorNote.style.display = 'none';
   heroErrorNote.style.display = 'none';
-  appBody.classList.remove('state-chat');
-  appBody.classList.add('state-empty');
+  bodyEl.classList.remove('state-chat');
+  bodyEl.classList.add('state-empty');
   document.body.classList.remove('header-hidden');
   heroInput.value = '';
   heroAutoResize();
