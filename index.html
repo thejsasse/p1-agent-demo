@@ -128,7 +128,7 @@
   .app-body {
     flex: 1; min-height: 0;
     display: flex; flex-direction: column;
-    padding-top: calc(var(--header-h) + 20px);
+    padding-top: var(--header-h);
     box-sizing: border-box;
     transition: padding-top 0.3s ease;
   }
@@ -147,10 +147,10 @@
     width: 100%;
     max-width: 820px;
     margin: 0 auto;
-    padding: 44px 48px 40px;
+    padding: 24px 48px 32px;
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: 24px;
     /* Glass-card surface: separates welcome content from the moving wall
        behind it so headline, filters, and starters all read cleanly. The
        wall stays visible around the card edges so the ambient context is
@@ -977,7 +977,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.3.9';
+const APP_VERSION = '0.4.0';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -2068,6 +2068,39 @@ let __scrollHideLastToggle = 0;
 
 // ─── VERSION LABELS ───────────────────────────────────────────────────────
 document.getElementById('versionLabel').textContent = 'v' + APP_VERSION;
+
+// ─── LAYOUT GUARDS ────────────────────────────────────────────────────────
+// Force scrollable containers back to scrollTop=0 on load. Some browsers
+// restore prior scroll position on reload, which can put the card visually
+// far below the header on the next visit.
+window.addEventListener('load', () => {
+  const empty = document.getElementById('emptyState');
+  const msgs  = document.getElementById('messages');
+  if (empty) empty.scrollTop = 0;
+  if (msgs)  msgs.scrollTop  = 0;
+
+  // Debug: report actual rendered positions so we can diagnose any layout
+  // drift between expected (CSS math) and rendered (computed style) values.
+  if (empty) {
+    const headerEl  = document.querySelector('header');
+    const innerEl   = document.querySelector('.empty-inner');
+    const eyebrowEl = document.querySelector('.eyebrow');
+    const hRect = headerEl  && headerEl.getBoundingClientRect();
+    const eRect = empty.getBoundingClientRect();
+    const iRect = innerEl   && innerEl.getBoundingClientRect();
+    const bRect = eyebrowEl && eyebrowEl.getBoundingClientRect();
+    const appBody = document.querySelector('.app-body');
+    const appPad  = appBody && getComputedStyle(appBody).paddingTop;
+    console.log('[P1 layout debug]',
+      'header_bottom=' + (hRect ? hRect.bottom : 'n/a'),
+      'app_body_padding_top=' + appPad,
+      'empty_state_top=' + eRect.top,
+      'empty_state_scrollTop=' + empty.scrollTop,
+      'empty_inner_top=' + (iRect ? iRect.top : 'n/a'),
+      'eyebrow_top=' + (bRect ? bRect.top : 'n/a'),
+      'viewport_h=' + window.innerHeight);
+  }
+});
 </script>
 </body>
 </html>
