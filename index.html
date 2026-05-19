@@ -25,6 +25,7 @@
     --text-faint:   #5a5852;
     --serif: 'Newsreader', 'Charter', 'Georgia', serif;
     --sans:  'Inter', system-ui, -apple-system, sans-serif;
+    --header-h: 86px;
   }
 
   html, body { height: 100%; overflow: hidden; max-width: 100%; }
@@ -48,18 +49,18 @@
     align-items: center;
     justify-content: space-between;
     padding: 14px 28px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border-soft);
+    background: rgba(15, 15, 16, 0.7);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
     position: relative;
-    z-index: 2;
+    z-index: 3;
+    transition: transform 0.3s ease;
+    will-change: transform;
   }
   .header-left { display: flex; align-items: center; gap: 10px; cursor: pointer; }
   .header-left:hover { opacity: 0.85; }
-  /* PodcastOne logo: JPG embedded as data URI in the build step. The source
-     JPG is square (900x900) with substantial padding around the actual mark.
-     background-size scales the source up beyond the container so the padding
-     falls outside the visible area, leaving just the arch + wordmark. */
   .brand-mark {
     width: 110px;
     height: 56px;
@@ -72,23 +73,59 @@
     text-transform: uppercase;
     color: var(--text-muted);
   }
-  .header-actions { display: flex; align-items: center; gap: 16px; }
-  .new-chat-btn {
-    background: transparent;
-    border: 1px solid var(--border-strong);
-    color: var(--text-dim);
-    padding: 7px 14px;
-    border-radius: 6px;
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  /* Pill buttons (Cade's prototype pattern): outlined default, filled primary */
+  .pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
     font-family: var(--sans);
-    font-size: 0.82rem;
+    font-size: 13px;
     font-weight: 500;
+    border: 1px solid var(--border-strong);
+    background: rgba(20, 20, 24, 0.6);
+    color: var(--text-dim);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.18s ease;
   }
-  .new-chat-btn:hover { border-color: var(--accent); color: var(--text); background: var(--accent-dim); }
+  .pill-btn:hover {
+    border-color: var(--text-muted);
+    color: var(--text);
+    background: rgba(28, 28, 32, 0.8);
+  }
+  .pill-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .pill-btn.primary:hover {
+    background: #c93434;
+    border-color: #c93434;
+  }
+  .pill-btn .btn-icon { width: 14px; height: 14px; flex-shrink: 0; }
+  .version-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    margin-left: 6px;
+    user-select: none;
+  }
+  /* Scroll-hide header: slides up on down-scroll, returns on up-scroll. The
+     synchronized margin-top on .app-body pulls content into the freed space
+     so the user genuinely "gains" the header height, per the requested
+     behavior. */
+  body.header-hidden header { transform: translateY(-100%); }
+  body.header-hidden .app-body { margin-top: calc(-1 * var(--header-h)); }
 
   /* ─── MAIN STATE TOGGLING ────────────────────────────────────────────── */
-  .app-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .app-body {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    transition: margin-top 0.3s ease;
+  }
   .empty-state, .chat-state { display: none; flex: 1; min-height: 0; }
   body.state-empty .empty-state { display: flex; flex-direction: column; }
   body.state-chat .chat-state { display: flex; flex-direction: column; }
@@ -295,15 +332,6 @@
   .hero-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .hero-send-btn svg { width: 18px; height: 18px; }
 
-  .hero-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.72rem;
-    color: var(--text-faint);
-    margin-top: -8px;
-  }
-
   /* Show tile band (reassurance row, PRD §11) */
   .tile-band-label {
     font-family: var(--sans);
@@ -423,6 +451,16 @@
     line-height: 1.55;
     color: var(--text);
     max-width: calc(100% - 44px);
+  }
+  /* Agent bubble: glass-card surface so prose reads cleanly on the wall.
+     Cards inside the bubble layer on top with their own backgrounds. */
+  .msg-row.agent .bubble {
+    background: rgba(20, 20, 24, 0.55);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    padding: 14px 18px;
   }
   .msg-row.user .bubble {
     background: var(--bg-elev-2);
@@ -603,7 +641,7 @@
     margin: 14px 0 2px;
   }
   .followup-btn {
-    background: transparent;
+    background: var(--bg-elev-2);
     border: 1px solid var(--border-strong);
     color: var(--text-dim);
     padding: 7px 14px;
@@ -713,13 +751,6 @@
   .send-btn:hover:not(:disabled) { transform: translateY(-1px); }
   .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .send-btn svg { width: 16px; height: 16px; }
-  .input-footer {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 6px;
-    font-size: 0.7rem;
-    color: var(--text-faint);
-  }
   .error-note {
     background: rgba(255, 107, 61, 0.08);
     border: 1px solid var(--accent);
@@ -833,6 +864,7 @@
 
   /* Responsive */
   @media (max-width: 640px) {
+    :root { --header-h: 68px; }
     header { padding: 12px 16px; }
     .empty-state { padding: 0 16px 24px; }
     .empty-inner { padding: 28px 18px 24px; gap: 22px; border-radius: 18px; }
@@ -845,10 +877,15 @@
     .card-art, .card.deep .card-art-deep { width: 92px; height: 92px; }
     .card-cta .cta-full { display: none; }
     .card-cta .cta-short { display: inline; }
-    .starters { display: none; }
     .wall { opacity: 0.2; }
     .brand-mark { width: 84px; height: 44px; background-size: 96px 96px; }
     .brand-sub { display: none; }
+    .pill-btn { padding: 7px 11px; font-size: 12px; }
+    .pill-btn .btn-icon { width: 13px; height: 13px; }
+    #historyBtn span { display: none; }
+    .version-label { display: none; }
+    .header-actions { gap: 8px; }
+    .msg-row.agent .bubble { padding: 12px 14px; }
   }
 </style>
 </head>
@@ -868,7 +905,21 @@
     <div class="brand-sub">· Agent</div>
   </div>
   <div class="header-actions">
-    <button class="new-chat-btn" id="newChatBtn">New chat</button>
+    <button class="pill-btn" id="historyBtn" type="button" title="History (coming soon)">
+      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <polyline points="12 7 12 12 15 14"/>
+      </svg>
+      <span>History</span>
+    </button>
+    <button class="pill-btn primary" id="newChatBtn" type="button">
+      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      <span>New chat</span>
+    </button>
+    <span class="version-label" id="versionLabel"></span>
   </div>
 </header>
 
@@ -893,7 +944,10 @@
         <div class="chip-row" id="popChips"></div>
       </div>
 
-      <div class="starters" id="starters"></div>
+      <div class="filter-group">
+        <div class="filter-label">Something special?</div>
+        <div class="starters" id="starters"></div>
+      </div>
 
       <div class="hero-input-wrap">
         <textarea id="heroInput" rows="1" placeholder="What kind of shows are you looking for?" maxlength="2000"></textarea>
@@ -903,10 +957,6 @@
             <polyline points="5 12 12 5 19 12"/>
           </svg>
         </button>
-      </div>
-      <div class="hero-footer">
-        <span>Enter to send · Shift+Enter for new line</span>
-        <span id="versionLabelHero"></span>
       </div>
       <div id="heroErrorNote" class="error-note" style="display:none;"></div>
 
@@ -930,10 +980,6 @@
             </svg>
           </button>
         </div>
-        <div class="input-footer">
-          <span>P1 Agent · routes you to Apple Podcasts</span>
-          <span id="versionLabelChat"></span>
-        </div>
         <div id="errorNote" class="error-note" style="display:none;"></div>
       </div>
     </div>
@@ -944,7 +990,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.3.2';
+const APP_VERSION = '0.3.3';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -988,9 +1034,9 @@ const filterState = {
 // v0.1.3: "Make me laugh" and "True crime" overlapped with the Topic chips,
 // so swapped to "Current Events" and "Adventurous" for unique levers.
 const STARTERS = [
-  { tag: 'Long drive',     text: 'Podcasts to drive to.' },
-  { tag: 'Current events', text: 'Something from the past week.' },
-  { tag: 'Adventurous',    text: 'Down for whatever.' },
+  { text: 'Podcasts to drive to.' },
+  { text: 'From the past week.' },
+  { text: 'Down for whatever.' },
 ];
 
 // ─── SYSTEM PROMPT ────────────────────────────────────────────────────────
@@ -1236,7 +1282,7 @@ const startersEl = document.getElementById('starters');
 STARTERS.forEach(s => {
   const b = document.createElement('button');
   b.className = 'starter';
-  b.innerHTML = '<span class="starter-tag">' + s.tag + '</span>' + escapeHtml(s.text);
+  b.textContent = s.text;
   b.addEventListener('click', () => {
     heroInput.value = s.text;
     heroAutoResize();
@@ -1838,6 +1884,7 @@ function clearConversation() {
   heroErrorNote.style.display = 'none';
   appBody.classList.remove('state-chat');
   appBody.classList.add('state-empty');
+  document.body.classList.remove('header-hidden');
   heroInput.value = '';
   heroAutoResize();
   heroSendBtn.disabled = true;
@@ -1941,9 +1988,32 @@ async function sendMessage() {
   if (!isMobile()) inputEl.focus();
 }
 
+// ─── SCROLL-HIDE HEADER ───────────────────────────────────────────────────
+// Header slides up when the user scrolls down past a threshold, returns the
+// moment they scroll up. Synchronized margin-top on .app-body (see CSS) pulls
+// the content into the freed space so the user actually gains the height.
+(function setupScrollHideHeader() {
+  const TRIGGER = 80;
+  const DELTA   = 4;
+  ['emptyState', 'messages'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let lastY = 0;
+    el.addEventListener('scroll', () => {
+      const y = el.scrollTop;
+      const dy = y - lastY;
+      if (dy > DELTA && y > TRIGGER) {
+        document.body.classList.add('header-hidden');
+      } else if (dy < -DELTA) {
+        document.body.classList.remove('header-hidden');
+      }
+      lastY = y;
+    }, { passive: true });
+  });
+})();
+
 // ─── VERSION LABELS ───────────────────────────────────────────────────────
-document.getElementById('versionLabelHero').textContent = 'v' + APP_VERSION;
-document.getElementById('versionLabelChat').textContent = 'v' + APP_VERSION;
+document.getElementById('versionLabel').textContent = 'v' + APP_VERSION;
 </script>
 </body>
 </html>
