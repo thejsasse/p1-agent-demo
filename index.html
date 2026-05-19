@@ -102,12 +102,21 @@
   }
   .empty-inner {
     width: 100%;
-    max-width: 760px;
+    max-width: 820px;
     margin: 0 auto;
-    padding: 56px 0 0;
+    padding: 44px 48px 40px;
     display: flex;
     flex-direction: column;
     gap: 28px;
+    /* Glass-card surface: separates welcome content from the moving wall
+       behind it so headline, filters, and starters all read cleanly. The
+       wall stays visible around the card edges so the ambient context is
+       preserved. */
+    background: rgba(20, 20, 24, 0.55);
+    backdrop-filter: blur(28px) saturate(1.4);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 24px;
   }
 
   .eyebrow {
@@ -826,7 +835,7 @@
   @media (max-width: 640px) {
     header { padding: 12px 16px; }
     .empty-state { padding: 0 16px 24px; }
-    .empty-inner { padding: 32px 0 0; gap: 22px; }
+    .empty-inner { padding: 28px 18px 24px; gap: 22px; border-radius: 18px; }
     #messages { padding: 16px 16px 8px; }
     .input-area { padding: 10px 16px 14px; }
     .tile-band { margin: 0 -16px; }
@@ -935,7 +944,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.3.1';
+const APP_VERSION = '0.3.2';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
