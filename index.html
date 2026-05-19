@@ -39,6 +39,7 @@
     flex-direction: column;
     height: 100vh;
     height: 100dvh;
+    position: relative;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -53,8 +54,8 @@
     backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    flex-shrink: 0;
-    position: relative;
+    position: absolute;
+    top: 0; left: 0; right: 0;
     z-index: 3;
     transition: transform 0.3s ease;
     will-change: transform;
@@ -110,21 +111,22 @@
     font-size: 10px;
     letter-spacing: 0.1em;
     color: var(--text-faint);
-    margin-left: 6px;
+    margin-right: 4px;
     user-select: none;
   }
   /* Scroll-hide header: slides up on down-scroll, returns on up-scroll. The
-     synchronized margin-top on .app-body pulls content into the freed space
-     so the user genuinely "gains" the header height, per the requested
-     behavior. */
+     header is position: absolute (out of flex flow) and .app-body has a
+     padding-top sized to the header. When the header hides, the padding
+     transitions to 0 so content genuinely gains the header's height. */
   body.header-hidden header { transform: translateY(-100%); }
-  body.header-hidden .app-body { margin-top: calc(-1 * var(--header-h)); }
+  body.header-hidden .app-body { padding-top: 0; }
 
   /* ─── MAIN STATE TOGGLING ────────────────────────────────────────────── */
   .app-body {
     flex: 1; min-height: 0;
     display: flex; flex-direction: column;
-    transition: margin-top 0.3s ease;
+    padding-top: var(--header-h);
+    transition: padding-top 0.3s ease;
   }
   .empty-state, .chat-state { display: none; flex: 1; min-height: 0; }
   body.state-empty .empty-state { display: flex; flex-direction: column; }
@@ -826,18 +828,19 @@
     0%, 100% { opacity: var(--op-min, 0.4); }
     50% { opacity: var(--op-max, 0.85); }
   }
-  /* Scrims keep the header (top) and tile band / input bar (bottom) readable
-     over the moving wall. */
+  /* Scrim sits BELOW the header so the header's frosted-glass background
+     can show wall content. The scrim provides a soft fade between the
+     header bottom and the wall behind chat/welcome content. */
   .top-scrim {
     position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 140px;
+    top: var(--header-h);
+    left: 0; right: 0;
+    height: 90px;
     z-index: 1;
     pointer-events: none;
     background: linear-gradient(180deg,
-      var(--bg) 0%,
-      rgba(12, 12, 14, 0.92) 30%,
-      rgba(12, 12, 14, 0.6) 65%,
+      rgba(12, 12, 14, 0.75) 0%,
+      rgba(12, 12, 14, 0.35) 50%,
       transparent 100%);
   }
   .bottom-scrim {
@@ -882,7 +885,6 @@
     .brand-sub { display: none; }
     .pill-btn { padding: 7px 11px; font-size: 12px; }
     .pill-btn .btn-icon { width: 13px; height: 13px; }
-    #historyBtn span { display: none; }
     .version-label { display: none; }
     .header-actions { gap: 8px; }
     .msg-row.agent .bubble { padding: 12px 14px; }
@@ -905,13 +907,7 @@
     <div class="brand-sub">· Agent</div>
   </div>
   <div class="header-actions">
-    <button class="pill-btn" id="historyBtn" type="button" title="History (coming soon)">
-      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="9"/>
-        <polyline points="12 7 12 12 15 14"/>
-      </svg>
-      <span>History</span>
-    </button>
+    <span class="version-label" id="versionLabel"></span>
     <button class="pill-btn primary" id="newChatBtn" type="button">
       <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="19"/>
@@ -919,7 +915,6 @@
       </svg>
       <span>New chat</span>
     </button>
-    <span class="version-label" id="versionLabel"></span>
   </div>
 </header>
 
@@ -930,7 +925,7 @@
     <div class="empty-inner">
       <div>
         <div class="eyebrow"><span class="live" aria-hidden="true"></span><span>Available</span></div>
-        <h1 class="hero-greeting">Let us help you find your <span class="stamp">next podcast addiction</span>.</h1>
+        <h1 class="hero-greeting">Let us help you find your next <span class="stamp">podcast obsession</span>.</h1>
         <p class="hero-sub">Tell me what you're into or what you've been missing, and I'll find you new shows.</p>
       </div>
 
@@ -990,7 +985,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.3.4';
+const APP_VERSION = '0.3.5';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -1989,25 +1984,44 @@ async function sendMessage() {
 }
 
 // ─── SCROLL-HIDE HEADER ───────────────────────────────────────────────────
-// Header slides up when the user scrolls down past a threshold, returns the
-// moment they scroll up. Synchronized margin-top on .app-body (see CSS) pulls
-// the content into the freed space so the user actually gains the height.
+// Header is position: absolute (see CSS); .app-body has padding-top sized
+// to the header. When user scrolls down past TRIGGER, header translates up
+// and the padding shrinks to 0 so content gains the freed height. Direction
+// is read on rAF (one read per frame) with a deadband (DELTA) plus a
+// post-toggle cooldown so streaming auto-scroll and transition repaints
+// don't put the class in a feedback loop.
 (function setupScrollHideHeader() {
-  const TRIGGER = 80;
-  const DELTA   = 4;
+  const TRIGGER  = 80;
+  const DELTA    = 12;
+  const COOLDOWN = 400;
   ['emptyState', 'messages'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    let lastY = 0;
+    let lastY = el.scrollTop;
+    let lastToggle = 0;
+    let pending = false;
     el.addEventListener('scroll', () => {
-      const y = el.scrollTop;
-      const dy = y - lastY;
-      if (dy > DELTA && y > TRIGGER) {
-        document.body.classList.add('header-hidden');
-      } else if (dy < -DELTA) {
-        document.body.classList.remove('header-hidden');
-      }
-      lastY = y;
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        const now = performance.now();
+        if (now - lastToggle < COOLDOWN) {
+          lastY = el.scrollTop;
+          return;
+        }
+        const y = el.scrollTop;
+        const dy = y - lastY;
+        const isHidden = document.body.classList.contains('header-hidden');
+        if (!isHidden && dy > DELTA && y > TRIGGER) {
+          document.body.classList.add('header-hidden');
+          lastToggle = now;
+        } else if (isHidden && dy < -DELTA) {
+          document.body.classList.remove('header-hidden');
+          lastToggle = now;
+        }
+        lastY = y;
+      });
     }, { passive: true });
   });
 })();
