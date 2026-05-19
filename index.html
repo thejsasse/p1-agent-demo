@@ -437,8 +437,8 @@
     letter-spacing: 0.04em;
   }
   .avatar.agent {
-    background: var(--accent);
-    color: var(--bg);
+    background: var(--accent) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='%23ffffff'><rect x='6' y='13' width='3' height='6' rx='1.5'/><rect x='11' y='9' width='3' height='14' rx='1.5'/><rect x='16' y='6' width='3' height='20' rx='1.5'/><rect x='21' y='10' width='3' height='12' rx='1.5'/></g></svg>") center / contain no-repeat;
+    color: transparent;
   }
   .avatar.user {
     background: #0A84FF;
@@ -873,6 +873,7 @@
     .card-cta .cta-full { display: none; }
     .card-cta .cta-short { display: inline; }
     .wall { opacity: 0.2; }
+    .filter-label { color: var(--accent); }
     .hero-sub { display: none; }
     .brand-mark { width: 77px; height: 48px; }
     .pill-btn { padding: 7px 11px; font-size: 12px; }
@@ -920,17 +921,17 @@
       </div>
 
       <div class="filter-group">
-        <div class="filter-label">Topics (optional, pick any)</div>
+        <div class="filter-label">Topics (optional)</div>
         <div class="chip-row" id="topicChips"></div>
       </div>
 
       <div class="filter-group">
-        <div class="filter-label">Popularity (optional, pick one)</div>
+        <div class="filter-label">Popularity (optional)</div>
         <div class="chip-row" id="popChips"></div>
       </div>
 
       <div class="filter-group">
-        <div class="filter-label">Something special? (optional)</div>
+        <div class="filter-label">Something special? (optional - starts chat)</div>
         <div class="starters" id="starters"></div>
       </div>
 
@@ -975,7 +976,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.5.0';
+const APP_VERSION = '0.5.1';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -1761,7 +1762,7 @@ function addMessage(role, text) {
 
   const avatar = document.createElement('div');
   avatar.className = 'avatar ' + role;
-  avatar.textContent = role === 'agent' ? 'P1' : 'You';
+  avatar.textContent = role === 'agent' ? '' : 'You';
 
   const bubble = document.createElement('div');
   bubble.className = 'bubble ' + role;
@@ -1842,7 +1843,7 @@ function addTyping() {
   row.id = 'typing-indicator';
   const avatar = document.createElement('div');
   avatar.className = 'avatar agent';
-  avatar.textContent = 'P1';
+  avatar.textContent = '';
   const typing = document.createElement('div');
   typing.className = 'typing';
   typing.innerHTML = '<span></span><span></span><span></span>';
