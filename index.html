@@ -990,7 +990,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.3.7';
+const APP_VERSION = '0.3.8';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
@@ -1991,21 +1991,31 @@ async function sendMessage() {
 // ─── SCROLL-HIDE HEADER ───────────────────────────────────────────────────
 // Header is position: absolute (see CSS); .app-body has padding-top sized
 // to the header. When user scrolls down past TRIGGER, header translates up
-// and the padding shrinks to 0 so content gains the freed height. Direction
-// is read on rAF (one read per frame) with a deadband (DELTA) plus a
-// post-toggle cooldown so streaming auto-scroll and transition repaints
-// don't put the class in a feedback loop.
+// and the padding shrinks to 0 so content gains the freed height.
 //
-// RECOVERY CHANNELS: when the padding shrinks to 0, content can shrink-fit
-// the larger area. Scroll events stop firing because there's nothing to
-// scroll, trapping the header in the hidden state. Wheel and touchmove
-// listeners fire on user intent regardless of overflow, so they handle the
-// "user wants the header back" case even when actual scrolling is impossible.
+// TRAP GUARD: if hiding the header would eliminate all overflow (content
+// fits exactly in the larger area), the user can get trapped because no
+// scroll events fire on a non-overflowing container. Before triggering
+// hide, we compute whether enough overflow would remain after the padding
+// shrinks. If not, we don't hide — the user wasn't going to gain much
+// from the hide anyway.
+//
+// RECOVERY CHANNELS: wheel-up and touch-swipe-down listeners restore a
+// hidden header. They run WITHOUT the scroll-handler's cooldown, so a
+// user's instinctive recovery (wheel down → see header hide → immediately
+// wheel up) always works.
 let __scrollHideLastToggle = 0;
 (function setupScrollHideHeader() {
-  const TRIGGER  = 80;
-  const DELTA    = 12;
-  const COOLDOWN = 400;
+  const TRIGGER       = 80;
+  const DELTA         = 12;
+  const COOLDOWN      = 400;
+  const POST_HIDE_MIN = 40;   // px of overflow that must remain after hide
+
+  function headerH() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--header-h');
+    return parseInt(v) || 90;
+  }
+
   ['emptyState', 'messages'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -2025,6 +2035,12 @@ let __scrollHideLastToggle = 0;
         const dy = y - lastY;
         const isHidden = document.body.classList.contains('header-hidden');
         if (!isHidden && dy > DELTA && y > TRIGGER) {
+          // Refuse hide if it would leave content fitting exactly (trap risk)
+          const overflowAfterHide = el.scrollHeight - el.clientHeight - headerH();
+          if (overflowAfterHide < POST_HIDE_MIN) {
+            lastY = y;
+            return;
+          }
           document.body.classList.add('header-hidden');
           __scrollHideLastToggle = now;
         } else if (isHidden && dy < -DELTA) {
@@ -2036,18 +2052,17 @@ let __scrollHideLastToggle = 0;
     }, { passive: true });
   });
 
-  // Recovery: wheel-up always restores a hidden header
+  // Recovery: wheel-up always restores a hidden header (no cooldown so the
+  // user's instinctive immediate-recovery wheel-up after a hide always works)
   window.addEventListener('wheel', (e) => {
     if (e.deltaY >= -15) return;
-    const now = performance.now();
-    if (now - __scrollHideLastToggle < COOLDOWN) return;
     if (document.body.classList.contains('header-hidden')) {
       document.body.classList.remove('header-hidden');
-      __scrollHideLastToggle = now;
+      __scrollHideLastToggle = performance.now();
     }
   }, { passive: true });
 
-  // Recovery: swipe-down (finger moves down) restores a hidden header on touch
+  // Recovery: swipe-down restores a hidden header on touch (no cooldown)
   let touchStartY = null;
   window.addEventListener('touchstart', (e) => {
     touchStartY = e.touches[0].clientY;
@@ -2056,11 +2071,9 @@ let __scrollHideLastToggle = 0;
     if (touchStartY === null) return;
     const dy = e.touches[0].clientY - touchStartY;
     if (dy < 30) return;
-    const now = performance.now();
-    if (now - __scrollHideLastToggle < COOLDOWN) return;
     if (document.body.classList.contains('header-hidden')) {
       document.body.classList.remove('header-hidden');
-      __scrollHideLastToggle = now;
+      __scrollHideLastToggle = performance.now();
       touchStartY = null;
     }
   }, { passive: true });
