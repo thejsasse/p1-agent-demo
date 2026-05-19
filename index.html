@@ -832,22 +832,10 @@
     0%, 100% { opacity: var(--op-min, 0.4); }
     50% { opacity: var(--op-max, 0.85); }
   }
-  /* Scrim sits BELOW the header so the header's frosted-glass background
-     can show wall content. Lighter than before so the 20px gap below the
-     header reveals wall, smoothly handing off opacity from the header's
-     fading gradient (ends ~40%) into transparency over ~70px. */
-  .top-scrim {
-    position: fixed;
-    top: var(--header-h);
-    left: 0; right: 0;
-    height: 70px;
-    z-index: 1;
-    pointer-events: none;
-    background: linear-gradient(180deg,
-      rgba(12, 12, 14, 0.35) 0%,
-      rgba(12, 12, 14, 0.15) 60%,
-      transparent 100%);
-  }
+  /* The header gradient fades to transparent at its own bottom edge, and
+     the welcome card has its own glass-card backdrop, so no extra scrim
+     is needed at the top. Bottom-scrim still helps anchor the input area
+     and tile band against the wall. */
   .bottom-scrim {
     position: fixed;
     bottom: 0; left: 0; right: 0;
@@ -903,7 +891,6 @@
   <div class="wall-grain"></div>
   <div id="wall-cols"></div>
 </div>
-<div class="top-scrim" aria-hidden="true"></div>
 <div class="bottom-scrim" aria-hidden="true"></div>
 
 <header>
@@ -990,7 +977,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.3.8';
+const APP_VERSION = '0.3.9';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
