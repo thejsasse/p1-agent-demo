@@ -842,10 +842,10 @@
       rgba(12, 12, 14, 0.85) 40%,
       transparent 100%);
   }
-  /* Dim wall in chat mode. .state-chat is toggled on .app-body when a
-     conversation starts (existing behavior). :has() lets us reach back up
-     and dim the wall, which sits as a sibling above .app-body in the DOM. */
-  body:has(.app-body.state-chat) .wall { opacity: 0.2; }
+  /* Dim wall in chat mode so message bubbles read cleanly. The state-chat
+     class is toggled on <body> (despite the variable name appBody in the JS
+     pointing at document.body), so this selector matches there directly. */
+  body.state-chat .wall { opacity: 0.2; }
   /* Header + app-body sit above scrims. Header keeps its position:absolute
      from the earlier rule; this rule was previously overriding it with
      position:relative which moved the header back into flex flow and
@@ -930,7 +930,7 @@
       </div>
 
       <div class="filter-group">
-        <div class="filter-label">Something special?</div>
+        <div class="filter-label">Something special? (optional)</div>
         <div class="starters" id="starters"></div>
       </div>
 
@@ -975,7 +975,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.4.7';
+const APP_VERSION = '0.4.8';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
