@@ -346,7 +346,7 @@
     display: flex;
     overflow-x: auto;
     overflow-y: hidden;
-    margin: 0 -28px;
+    margin: 0;
     padding: 8px 0;
     position: relative;
     cursor: grab;
@@ -870,7 +870,7 @@
     .empty-inner { padding: 28px 18px 24px; gap: 22px; border-radius: 18px; }
     #messages { padding: 16px 16px 8px; }
     .input-area { padding: 10px 16px 14px; }
-    .tile-band { margin: 0 -16px; }
+    .tile-band { margin: 0; }
     .tile, .tile-art { width: 104px; }
     .tile-art { height: 104px; }
     .card { padding: 12px; gap: 12px; }
@@ -990,7 +990,7 @@
 <script>
 // ─── BUILD VERSION ────────────────────────────────────────────────────────
 // Increment by 0.1 each build. Wrap rule: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0.
-const APP_VERSION = '0.3.3';
+const APP_VERSION = '0.3.4';
 
 // ─── PROXY URL ────────────────────────────────────────────────────────────
 // Cloudflare Worker that forwards to Anthropic with the server-side API key.
